@@ -1,0 +1,299 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUserDoc(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isPairedDevice(uid, deviceId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(uid)/devices/$(deviceId))
+        && (
+          get(/databases/$(database)/documents/users/$(uid)/devices/$(deviceId)).data.deviceAuthUid == request.auth.uid
+          || get(/databases/$(database)/documents/users/$(uid)/devices/$(deviceId)).data.deviceAuthEmail == request.auth.token.email
+        );
+    }
+
+    function deviceShareId(uid, deviceId) {
+      return uid + "_" + deviceId + "_" + request.auth.uid;
+    }
+
+    function sharedDeviceRecord(uid, deviceId) {
+      return get(/databases/$(database)/documents/deviceShares/$(deviceShareId(uid, deviceId)));
+    }
+
+    function hasSharedDeviceAccess(uid, deviceId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/deviceShares/$(deviceShareId(uid, deviceId)))
+        && sharedDeviceRecord(uid, deviceId).data.status == "active"
+        && sharedDeviceRecord(uid, deviceId).data.ownerUid == uid
+        && sharedDeviceRecord(uid, deviceId).data.deviceId == deviceId
+        && sharedDeviceRecord(uid, deviceId).data.inviteeUid == request.auth.uid;
+    }
+
+    function canControlSharedDevice(uid, deviceId) {
+      return hasSharedDeviceAccess(uid, deviceId)
+        && sharedDeviceRecord(uid, deviceId).data.permission in [
+          "View + Control",
+          "Full Access"
+        ];
+    }
+
+    function validDeviceShareActivation(shareId) {
+      return request.resource.data.invitationId is string
+        && request.resource.data.keys().hasOnly([
+          "id",
+          "ownerUid",
+          "ownerEmail",
+          "inviteeUid",
+          "inviteeEmail",
+          "invitationId",
+          "deviceId",
+          "permission",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ])
+        && exists(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId))
+        && shareId == request.resource.data.ownerUid + "_" + request.resource.data.deviceId + "_" + request.resource.data.inviteeUid
+        && request.resource.data.ownerUid == get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId)).data.ownerUid
+        && request.resource.data.ownerEmail == get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId)).data.ownerEmail
+        && request.resource.data.inviteeUid == request.auth.uid
+        && request.resource.data.inviteeEmail == request.auth.token.email
+        && request.resource.data.permission == get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId)).data.permission
+        && request.resource.data.status == "active"
+        && get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId)).data.toEmail == request.auth.token.email
+        && get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId)).data.status in ["pending", "accepted"]
+        && get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.invitationId)).data.deviceIds.hasAny([request.resource.data.deviceId]);
+    }
+
+    function validSharedRemovalNotification(uid) {
+      return signedIn()
+        && request.resource.data.keys().hasOnly([
+          "id",
+          "title",
+          "message",
+          "time",
+          "type",
+          "isRead",
+          "createdAt",
+          "category",
+          "targetUid",
+          "sourceUid",
+          "familyInvitationId",
+          "deviceId"
+        ])
+        && request.resource.data.keys().hasAll([
+          "title",
+          "message",
+          "type",
+          "isRead",
+          "category",
+          "targetUid",
+          "sourceUid",
+          "familyInvitationId",
+          "deviceId"
+        ])
+        && request.resource.data.category == "shared_device_removed"
+        && request.resource.data.type == "info"
+        && request.resource.data.isRead == false
+        && request.resource.data.targetUid == uid
+        && request.resource.data.sourceUid == request.auth.uid
+        && request.resource.data.familyInvitationId is string
+        && exists(/databases/$(database)/documents/familyInvitations/$(request.resource.data.familyInvitationId))
+        && get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.familyInvitationId)).data.ownerUid == request.auth.uid
+        && get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.familyInvitationId)).data.respondedByUid == uid
+        && get(/databases/$(database)/documents/familyInvitations/$(request.resource.data.familyInvitationId)).data.status in ["accepted", "revoked"];
+    }
+
+    function requestTargetsPairedDevice(uid) {
+      return request.resource.data.deviceId is string
+        && isPairedDevice(uid, request.resource.data.deviceId);
+    }
+
+    match /esp32DeviceClaims/{esp32Id} {
+      allow read: if ownsUserDoc(resource.data.uid)
+        || (signedIn() && resource.data.deviceAuthEmail == request.auth.token.email);
+      allow create, update: if ownsUserDoc(request.resource.data.uid);
+      allow delete: if ownsUserDoc(resource.data.uid);
+    }
+
+    match /familyInvitations/{invitationId} {
+      allow read: if signedIn()
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || resource.data.toEmail == request.auth.token.email
+        );
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == "pending";
+      allow update: if signedIn()
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || (
+            resource.data.toEmail == request.auth.token.email
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "status",
+              "updatedAt",
+              "respondedAt",
+              "respondedByUid",
+              "respondedByEmail"
+            ])
+            && request.resource.data.status in ["accepted", "declined"]
+            && request.resource.data.respondedByUid == request.auth.uid
+          )
+        );
+      allow delete: if signedIn()
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || resource.data.respondedByUid == request.auth.uid
+        );
+    }
+
+    match /deviceShares/{shareId} {
+      allow read: if signedIn()
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || resource.data.inviteeUid == request.auth.uid
+        );
+      allow create: if signedIn()
+        && (
+          request.resource.data.ownerUid == request.auth.uid
+          || (
+            request.resource.data.inviteeUid == request.auth.uid
+            && validDeviceShareActivation(shareId)
+          )
+        );
+      allow update: if signedIn()
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || (
+            resource.data.inviteeUid == request.auth.uid
+            && request.resource.data.inviteeUid == request.auth.uid
+            && validDeviceShareActivation(shareId)
+          )
+          || (
+            resource.data.inviteeUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "status",
+              "updatedAt"
+            ])
+            && request.resource.data.status == "revoked"
+          )
+        );
+      allow delete: if signedIn()
+        && (
+          resource.data.ownerUid == request.auth.uid
+          || resource.data.inviteeUid == request.auth.uid
+        );
+    }
+
+    match /users/{uid}/devices/{deviceId} {
+      allow read: if ownsUserDoc(uid)
+        || isPairedDevice(uid, deviceId)
+        || hasSharedDeviceAccess(uid, deviceId);
+      allow create, delete: if ownsUserDoc(uid);
+      allow update: if ownsUserDoc(uid)
+        || (
+          isPairedDevice(uid, deviceId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "status",
+            "relayState",
+            "online",
+            "power",
+            "voltage",
+            "current",
+            "powerFactor",
+            "energy",
+            "todayCost",
+            "budgetUsed",
+            "readingSource",
+            "lastReadingAt",
+            "wifiSignal",
+            "protectionEnabled",
+            "maxPowerLimit",
+            "maxCurrentLimit",
+            "minVoltageLimit",
+            "maxVoltageLimit",
+            "protectionGraceMs",
+            "protectionCooldownMs",
+            "protectionTripActive",
+            "protectionTripReason",
+            "protectionTrippedAt",
+            "pendingOfflineLogs",
+            "offlineLogsSynced",
+            "lastOfflineSyncCount",
+            "lastOfflineSyncAt",
+            "lastOfflineSyncArchive",
+            "sdCardAvailable",
+            "sdCardTotalBytes",
+            "sdCardUsedBytes",
+            "sdCardFreeBytes",
+            "sdCardUsagePercent",
+            "sdFormatStatus",
+            "sdFormatProgress",
+            "sdFormatMessage",
+            "sdFormatUpdatedAt",
+            "lastSdFormatAt",
+            "scheduleManualOverride",
+            "scheduleManualOverrideUntil",
+            "scheduleBudgetReached",
+            "lastScheduleAction",
+            "lastScheduleActionAt",
+            "lastSyncedAt",
+            "updatedAt"
+          ])
+        );
+
+      match /readings/{readingId} {
+        allow read: if ownsUserDoc(uid)
+          || isPairedDevice(uid, deviceId)
+          || hasSharedDeviceAccess(uid, deviceId);
+        allow create, update: if ownsUserDoc(uid) || isPairedDevice(uid, deviceId);
+        allow delete: if ownsUserDoc(uid);
+      }
+
+      match /commands/{commandId} {
+        allow read: if ownsUserDoc(uid)
+          || isPairedDevice(uid, deviceId)
+          || hasSharedDeviceAccess(uid, deviceId);
+        allow create: if ownsUserDoc(uid) || canControlSharedDevice(uid, deviceId);
+        allow delete: if ownsUserDoc(uid);
+        allow update: if ownsUserDoc(uid) || isPairedDevice(uid, deviceId);
+      }
+    }
+
+    match /users/{uid}/offlineSyncBatches/{batchId} {
+      allow read, delete: if ownsUserDoc(uid);
+      allow create, update: if ownsUserDoc(uid) || requestTargetsPairedDevice(uid);
+    }
+
+    match /users/{uid}/usageLogs/{logId} {
+      allow read: if ownsUserDoc(uid);
+      allow write: if ownsUserDoc(uid);
+    }
+
+    match /users/{uid}/notifications/{notificationId} {
+      allow read, update, delete: if ownsUserDoc(uid);
+      allow create: if ownsUserDoc(uid) || validSharedRemovalNotification(uid);
+    }
+
+    match /users/{uid}/usageHistory/{entryId} {
+      allow read: if ownsUserDoc(uid)
+        || (
+          resource.data.deviceId is string
+          && hasSharedDeviceAccess(uid, resource.data.deviceId)
+        );
+      allow write: if ownsUserDoc(uid);
+    }
+
+    match /users/{uid}/{document=**} {
+      allow read, write: if ownsUserDoc(uid);
+    }
+  }
+}
