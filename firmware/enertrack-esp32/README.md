@@ -59,6 +59,25 @@ The firmware reads voltage, current, watts, kWh, and power factor from the PZEM-
 
 Use the GPIO connected to your relay module. Set `RELAY_ACTIVE_HIGH` to `false` if your relay turns on when the GPIO is LOW.
 
+## Voice Prompts
+
+The firmware can play short status prompts through a DFPlayer-style MP3 module. The readable source MP3 files can keep their descriptive filenames, but the SD card used by the module must contain numeric copies in the MP3 folder:
+
+```txt
+/MP3/0001.mp3
+/MP3/0002.mp3
+...
+/MP3/0036.mp3
+```
+
+The current SD-card package is generated at:
+
+```txt
+C:\Users\USER\Downloads\Mp3\DFPlayer_SD
+```
+
+Copy the contents of that folder to the MP3 module's SD card root. Keep `voice-track-map.csv` with your project notes or on the card so each numeric file can be traced back to its voice line. The firmware copy of the same map is in `voice-track-map.csv`.
+
 ## What It Does
 
 - Uploads live readings to `users/{uid}/devices/{deviceId}/readings`

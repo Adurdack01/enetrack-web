@@ -34,6 +34,13 @@ import {
   parseSchedule,
 } from "@/utils/schedule";
 import { resolveProtectionLimits } from "@/utils/protection";
+import {
+  getBillingDateKey,
+  getBillingHour,
+  getBillingMonthKey,
+  getBillingWeekdayIndex,
+  getBillingWeekOfMonth,
+} from "@/utils/billingTime";
 
 type TrendMode = "daily" | "weekly" | "monthly";
 type LogMode = "single" | "range";
@@ -109,15 +116,11 @@ const detailSections: {
 ];
 
 function getInputDate(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return getBillingDateKey(date);
 }
 
 function getLogInputDate(logDate: string) {
-  return getInputDate(new Date(logDate));
+  return getBillingDateKey(logDate) || logDate.slice(0, 10);
 }
 
 function roundEnergy(value: number) {
@@ -284,10 +287,6 @@ function isLogInsideRange(
   return logDate >= start && logDate <= end;
 }
 
-function getWeekOfMonth(date: Date) {
-  return Math.min(4, Math.max(1, Math.ceil(date.getDate() / 7)));
-}
-
 function buildTrendData(
   mode: TrendMode,
   selectedDate: string,
@@ -303,7 +302,7 @@ function buildTrendData(
     );
 
     dayLogs.forEach((entry) => {
-      const hour = new Date(entry.date).getHours();
+      const hour = getBillingHour(entry.date) ?? 0;
       const index = Math.min(labels.length - 1, Math.floor(hour / 4));
       data[index].value += entry.energy;
       costs[index] += getUsageHistoryCost(entry, electricityRate);
@@ -338,7 +337,7 @@ function buildTrendData(
     );
 
     weekLogs.forEach((entry) => {
-      const day = new Date(entry.date).getDay();
+      const day = getBillingWeekdayIndex(entry.date) ?? 0;
       const index = day === 0 ? 6 : day - 1;
       data[index].value += entry.energy;
       costs[index] += getUsageHistoryCost(entry, electricityRate);
@@ -366,17 +365,13 @@ function buildTrendData(
   const labels = ["W1", "W2", "W3", "W4"];
   const data = labels.map((label) => ({ label, value: 0 }));
   const costs = labels.map(() => 0);
-  const selected = new Date(`${selectedDate}T00:00:00`);
+  const selectedMonth = selectedDate.slice(0, 7);
   const monthLogs = entries.filter((entry) => {
-    const logDate = new Date(entry.date);
-    return (
-      logDate.getFullYear() === selected.getFullYear() &&
-      logDate.getMonth() === selected.getMonth()
-    );
+    return (getBillingMonthKey(entry.date) || entry.date.slice(0, 7)) === selectedMonth;
   });
 
   monthLogs.forEach((entry) => {
-    const index = getWeekOfMonth(new Date(entry.date)) - 1;
+    const index = (getBillingWeekOfMonth(entry.date) ?? 1) - 1;
     data[index].value += entry.energy;
     costs[index] += getUsageHistoryCost(entry, electricityRate);
   });

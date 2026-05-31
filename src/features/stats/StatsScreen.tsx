@@ -19,6 +19,12 @@ import type {
 } from "@/types/exportRecord";
 import type { UsageHistoryEntry } from "@/types/usageHistory";
 import type { UsageLog } from "@/types/usageLog";
+import {
+  getBillingDateKey,
+  getBillingDayOfMonth,
+  getBillingMonthKey,
+  getBillingYear,
+} from "@/utils/billingTime";
 
 type Props = {
   devices: Device[];
@@ -97,30 +103,19 @@ const LIFETIME_MODES: { id: ChartMode; label: string }[] = [
 ];
 
 function getInputDate(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return getBillingDateKey(date);
 }
 
 function getMonthInput(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-
-  return `${year}-${month}`;
+  return getBillingMonthKey(date);
 }
 
 function getEntryInputDate(value: string) {
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    return value.slice(0, 10);
-  }
-
-  return getInputDate(new Date(value));
+  return getBillingDateKey(value) || value.slice(0, 10);
 }
 
 function getLogInputDate(logDate: string) {
-  return getInputDate(new Date(logDate));
+  return getBillingDateKey(logDate) || logDate.slice(0, 10);
 }
 
 function roundEnergy(value: number) {
@@ -199,7 +194,7 @@ function getNextMonthInput(value: string) {
 }
 
 function isEntryInMonth(entry: UsageHistoryEntry, monthValue: string) {
-  return entry.date.slice(0, 7) === monthValue;
+  return (getBillingMonthKey(entry.date) || entry.date.slice(0, 7)) === monthValue;
 }
 
 function getDaysInMonth(monthValue: string) {
@@ -222,7 +217,10 @@ function buildMonthDailyChartData(
   entries.forEach((entry) => {
     if (!isEntryInMonth(entry, monthValue)) return;
 
-    const dayIndex = new Date(entry.date).getDate() - 1;
+    const day = getBillingDayOfMonth(entry.date);
+    if (day == null) return;
+
+    const dayIndex = day - 1;
     totals[dayIndex] += entry.energy;
     costs[dayIndex] += getUsageHistoryCost(entry, electricityRate);
   });
@@ -246,7 +244,10 @@ function buildMonthWeeklyChartData(
   entries.forEach((entry) => {
     if (!isEntryInMonth(entry, monthValue)) return;
 
-    const weekIndex = Math.floor((new Date(entry.date).getDate() - 1) / 7);
+    const day = getBillingDayOfMonth(entry.date);
+    if (day == null) return;
+
+    const weekIndex = Math.floor((day - 1) / 7);
     totals[weekIndex] += entry.energy;
     costs[weekIndex] += getUsageHistoryCost(entry, electricityRate);
   });
@@ -363,7 +364,10 @@ function buildLastTwelveMonthsChartData(
   const months: string[] = [];
   const totals = new Map<string, number>();
   const costs = new Map<string, number>();
-  const end = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
+  const [anchorYear, anchorMonth] = getMonthInput(anchorDate)
+    .split("-")
+    .map(Number);
+  const end = new Date(anchorYear, anchorMonth - 1, 1);
 
   for (let offset = 11; offset >= 0; offset -= 1) {
     const monthDate = new Date(end.getFullYear(), end.getMonth() - offset, 1);
@@ -374,7 +378,7 @@ function buildLastTwelveMonthsChartData(
   }
 
   entries.forEach((entry) => {
-    const monthKey = entry.date.slice(0, 7);
+    const monthKey = getBillingMonthKey(entry.date) || entry.date.slice(0, 7);
     if (!totals.has(monthKey)) return;
 
     totals.set(monthKey, (totals.get(monthKey) ?? 0) + entry.energy);
@@ -402,7 +406,9 @@ function buildLifetimeYearlyChartData(
   const costs = new Map<number, number>();
 
   entries.forEach((entry) => {
-    const year = new Date(entry.date).getFullYear();
+    const year = getBillingYear(entry.date);
+    if (year == null) return;
+
     totals.set(year, (totals.get(year) ?? 0) + entry.energy);
     costs.set(year, (costs.get(year) ?? 0) + getUsageHistoryCost(entry, electricityRate));
   });
@@ -431,7 +437,13 @@ function filterHistoryByScope(
 }
 
 function getUniqueHistoryMonths(entries: UsageHistoryEntry[]) {
-  return [...new Set(entries.map((entry) => entry.date.slice(0, 7)))].sort();
+  return [
+    ...new Set(
+      entries
+        .map((entry) => getBillingMonthKey(entry.date) || entry.date.slice(0, 7))
+        .filter(Boolean),
+    ),
+  ].sort();
 }
 
 function buildDeviceUsageAggregates(

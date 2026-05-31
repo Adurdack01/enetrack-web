@@ -77,7 +77,7 @@
 #endif
 
 #ifndef MP3_AUTOPLAY_ON_BOOT
-#define MP3_AUTOPLAY_ON_BOOT 1
+#define MP3_AUTOPLAY_ON_BOOT 0
 #endif
 
 #ifndef MP3_AUTOPLAY_TRACK
@@ -90,6 +90,14 @@
 
 #ifndef MP3_AUTOPLAY_START_DELAY_MS
 #define MP3_AUTOPLAY_START_DELAY_MS 1800UL
+#endif
+
+#ifndef MP3_VOICE_GAP_MS
+#define MP3_VOICE_GAP_MS 2600UL
+#endif
+
+#ifndef MP3_VOICE_QUEUE_SIZE
+#define MP3_VOICE_QUEUE_SIZE 12
 #endif
 
 #ifndef RTC_DS1302_CLK_PIN
@@ -274,6 +282,7 @@ const char *prefScheduleEnd = "schedEnd";
 const char *prefScheduleBudgetPhp = "schedBudPhp";
 const char *prefScheduleBudgetKwh = "schedBudKwh";
 const char *prefScheduleRate = "schedRate";
+const char *prefPendingPairingVoice = "pairVoice";
 const long gmtOffsetSeconds = 8 * 60 * 60;
 const int daylightOffsetSeconds = 0;
 const unsigned long pairingGraceMs = 5UL * 60UL * 1000UL;
@@ -305,6 +314,7 @@ unsigned long lastScheduleEvaluateAt = 0;
 unsigned long lastScheduleCloudRefreshAt = 0;
 unsigned long lastMp3SerialLogAt = 0;
 unsigned long nextMp3BootCommandAt = 0;
+unsigned long nextVoicePromptAt = 0;
 unsigned long lastRtcSyncAt = 0;
 bool relayStatus = false;
 bool protectionEnabled = true;
@@ -363,15 +373,30 @@ bool manualToggleButtonLastRawState = false;
 bool manualToggleButtonStableState = false;
 bool mp3SerialReady = false;
 bool mp3BootAutoplayCompleted = false;
+bool mp3StorageReady = false;
 bool rtcReady = false;
 bool rtcHasValidClock = false;
 unsigned long pairingRebootAt = 0;
 uint8_t wifiReconnectAttempt = 0;
 uint8_t firebaseReconnectAttempt = 0;
 uint8_t mp3BootCommandStage = 0;
+uint8_t voiceQueue[MP3_VOICE_QUEUE_SIZE];
+uint8_t voiceQueueHead = 0;
+uint8_t voiceQueueTail = 0;
+uint8_t voiceQueueCount = 0;
 unsigned long lastPairingResetProgressLogAt = 0;
 unsigned long lastPairingLedBlinkAt = 0;
 unsigned long lastApOnlyStatusLogAt = 0;
+bool sdVoiceStateKnown = false;
+bool sdVoiceWasAvailable = false;
+bool pairingVoiceDeviceDetected = false;
+bool pairingVoiceLoginVerified = false;
+bool wifiConnectionFailureVoiceSpoken = false;
+bool smartPlugOnlineVoiceSpoken = false;
+bool databaseRegistrationFailureVoiceSpoken = false;
+bool powerReadingVoiceSpoken = false;
+bool pendingPairingReopenVoice = false;
+bool pendingPairingReopenVoiceQueued = false;
 
 enum WifiManagerState {
   WIFI_MANAGER_IDLE,
@@ -393,6 +418,46 @@ struct SensorReading {
   float energyDelta;
   int wifiSignal;
   bool relayStatus;
+};
+
+enum VoicePrompt : uint8_t {
+  VOICE_NONE = 0,
+  VOICE_SMART_PLUG_ONLINE = 1,
+  VOICE_SMART_PLUG_OFFLINE = 2,
+  VOICE_RELAY_TURNED_ON = 3,
+  VOICE_RELAY_TURNED_OFF = 4,
+  VOICE_POWER_READING_UPDATED = 5,
+  VOICE_HIGH_POWER_DETECTED = 6,
+  VOICE_HIGH_CURRENT_DETECTED = 7,
+  VOICE_PROTECTION_ENABLED = 8,
+  VOICE_PROTECTION_DISABLED = 9,
+  VOICE_PROTECTION_TRIPPED_RELAY_OFF = 10,
+  VOICE_BUDGET_REACHED_RELAY_OFF = 11,
+  VOICE_SCHEDULE_STARTED_RELAY_ON = 12,
+  VOICE_SCHEDULE_ENDED_RELAY_OFF = 13,
+  VOICE_OFFLINE_LOGS_SYNCED = 14,
+  VOICE_SD_CARD_DETECTED = 15,
+  VOICE_SD_CARD_NOT_DETECTED = 16,
+  VOICE_DEVICE_REMOVED = 17,
+  VOICE_SHARED_DEVICE_INVITATION_RECEIVED = 18,
+  VOICE_PAIRING_STARTED = 19,
+  VOICE_SEARCHING_FOR_SMART_PLUG = 20,
+  VOICE_SMART_PLUG_DETECTED = 21,
+  VOICE_CONNECT_TO_SMART_PLUG_WIFI = 22,
+  VOICE_SMART_PLUG_WIFI_CONNECTED = 23,
+  VOICE_ENTER_HOME_WIFI_DETAILS = 24,
+  VOICE_SENDING_WIFI_DETAILS = 25,
+  VOICE_CONNECTING_SMART_PLUG_TO_WIFI = 26,
+  VOICE_SMART_PLUG_CONNECTED_TO_WIFI = 27,
+  VOICE_CREATING_DEVICE_PROFILE = 28,
+  VOICE_REGISTERING_DEVICE_TO_DATABASE = 29,
+  VOICE_VERIFYING_DATABASE_REGISTRATION = 30,
+  VOICE_SMART_PLUG_RESTARTING = 31,
+  VOICE_PAIRING_SUCCESSFUL = 32,
+  VOICE_CLOSE_AND_REOPEN_ENERTRACK = 33,
+  VOICE_PAIRING_FAILED_TRY_AGAIN = 34,
+  VOICE_WIFI_CONNECTION_FAILED_CHECK_PASSWORD = 35,
+  VOICE_DATABASE_REGISTRATION_FAILED_CHECK_INTERNET = 36
 };
 
 // Forward declarations used by helper functions before their full definitions.
@@ -418,6 +483,9 @@ void runLocalControlTask(unsigned long now);
 void runCloudBridgeTask(unsigned long now);
 void runFirmwareWatchdogTask(unsigned long now);
 void serviceMp3Autoplay(unsigned long now);
+void serviceVoiceQueue(unsigned long now);
+void queueVoicePrompt(uint8_t track);
+void queueVoicePromptUnique(uint8_t track);
 void serviceRtcClock(unsigned long now);
 
 struct Ds1302DateTime {
@@ -831,15 +899,83 @@ void sendMp3Command(uint8_t command, uint16_t parameter) {
   Serial.printf("[MP3] TX cmd=0x%02X param=%u\n", command, parameter);
 }
 
+bool voiceQueueContains(uint8_t track) {
+  for (uint8_t i = 0; i < voiceQueueCount; i++) {
+    const uint8_t index = (voiceQueueHead + i) % MP3_VOICE_QUEUE_SIZE;
+    if (voiceQueue[index] == track) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void queueVoicePrompt(uint8_t track) {
+  if (!mp3SerialReady || track == VOICE_NONE) {
+    return;
+  }
+
+  if (voiceQueueCount >= MP3_VOICE_QUEUE_SIZE) {
+    Serial.printf("[MP3] Voice queue full. Dropping track %u.\n", track);
+    return;
+  }
+
+  voiceQueue[voiceQueueTail] = track;
+  voiceQueueTail = (voiceQueueTail + 1) % MP3_VOICE_QUEUE_SIZE;
+  voiceQueueCount++;
+  Serial.printf("[MP3] Queued voice track MP3/%04u.mp3\n", track);
+}
+
+void clearVoiceQueue() {
+  voiceQueueHead = 0;
+  voiceQueueTail = 0;
+  voiceQueueCount = 0;
+  nextVoicePromptAt = millis();
+}
+
+void queueVoicePromptUnique(uint8_t track) {
+  if (voiceQueueContains(track)) {
+    return;
+  }
+
+  queueVoicePrompt(track);
+}
+
+void serviceVoiceQueue(unsigned long now) {
+  if (
+    !mp3SerialReady ||
+    !mp3StorageReady ||
+    voiceQueueCount == 0 ||
+    now < nextVoicePromptAt
+  ) {
+    return;
+  }
+
+  const uint8_t track = voiceQueue[voiceQueueHead];
+  voiceQueueHead = (voiceQueueHead + 1) % MP3_VOICE_QUEUE_SIZE;
+  voiceQueueCount--;
+
+  Serial.printf("[MP3] Playing MP3/%04u.mp3 using MP3-folder command.\n", track);
+  sendMp3Command(0x12, static_cast<uint16_t>(track));
+  nextVoicePromptAt = now + MP3_VOICE_GAP_MS;
+}
+
+void updateSdVoiceState(bool available) {
+  if (sdVoiceStateKnown && sdVoiceWasAvailable == available) {
+    return;
+  }
+
+  sdVoiceStateKnown = true;
+  sdVoiceWasAvailable = available;
+  queueVoicePromptUnique(
+    available ? VOICE_SD_CARD_DETECTED : VOICE_SD_CARD_NOT_DETECTED
+  );
+}
+
 void serviceMp3Autoplay(unsigned long now) {
   if (!mp3SerialReady || mp3BootAutoplayCompleted || now < nextMp3BootCommandAt) {
     return;
   }
-
-#if !MP3_AUTOPLAY_ON_BOOT
-  mp3BootAutoplayCompleted = true;
-  return;
-#endif
 
   switch (mp3BootCommandStage) {
     case 0:
@@ -857,8 +993,12 @@ void serviceMp3Autoplay(unsigned long now) {
       return;
 
     case 2:
-      Serial.printf("[MP3] Playing MP3/000%d.mp3 using MP3-folder command.\n", MP3_AUTOPLAY_TRACK);
-      sendMp3Command(0x12, static_cast<uint16_t>(max(1, MP3_AUTOPLAY_TRACK)));
+      mp3StorageReady = true;
+#if MP3_AUTOPLAY_ON_BOOT
+      queueVoicePrompt(static_cast<uint8_t>(max(1, MP3_AUTOPLAY_TRACK)));
+#else
+      Serial.println("[MP3] TF card storage and volume initialized.");
+#endif
       mp3BootCommandStage = 3;
       mp3BootAutoplayCompleted = true;
       nextMp3BootCommandAt = 0;
@@ -869,6 +1009,24 @@ void serviceMp3Autoplay(unsigned long now) {
       nextMp3BootCommandAt = 0;
       return;
   }
+}
+
+void servicePendingPairingReopenVoice() {
+  if (
+    !mp3SerialReady ||
+    !mp3StorageReady ||
+    !pendingPairingReopenVoice ||
+    pendingPairingReopenVoiceQueued ||
+    pendingPairingReboot
+  ) {
+    return;
+  }
+
+  queueVoicePrompt(VOICE_PAIRING_SUCCESSFUL);
+  queueVoicePrompt(VOICE_CLOSE_AND_REOPEN_ENERTRACK);
+  pendingPairingReopenVoiceQueued = true;
+  pendingPairingReopenVoice = false;
+  preferences.putBool(prefPendingPairingVoice, false);
 }
 
 void setupPairingHardware() {
@@ -905,12 +1063,22 @@ void setupLocalControlHardware() {
   mp3Serial.begin(MP3_UART_BAUD, SERIAL_8N1, MP3_UART_RX_PIN, MP3_UART_TX_PIN);
   mp3SerialReady = true;
   mp3BootAutoplayCompleted = false;
+  mp3StorageReady = false;
   mp3BootCommandStage = 0;
+  voiceQueueHead = 0;
+  voiceQueueTail = 0;
+  voiceQueueCount = 0;
+  nextVoicePromptAt = 0;
   nextMp3BootCommandAt = millis() + MP3_AUTOPLAY_START_DELAY_MS;
 #else
   mp3SerialReady = false;
   mp3BootAutoplayCompleted = true;
+  mp3StorageReady = false;
   mp3BootCommandStage = 0;
+  voiceQueueHead = 0;
+  voiceQueueTail = 0;
+  voiceQueueCount = 0;
+  nextVoicePromptAt = 0;
   nextMp3BootCommandAt = 0;
 #endif
 
@@ -972,6 +1140,7 @@ void clearStoredPairing() {
   preferences.remove(prefScheduleBudgetPhp);
   preferences.remove(prefScheduleBudgetKwh);
   preferences.remove(prefScheduleRate);
+  preferences.remove(prefPendingPairingVoice);
   preferences.putBool(prefPaired, false);
 
   runtimeWifiSsid = "";
@@ -985,6 +1154,8 @@ void clearStoredPairing() {
   cloudDeviceName = DEVICE_NAME;
   deviceLocation = "";
   localPairingToken = "";
+  pendingPairingReopenVoice = false;
+  pendingPairingReopenVoiceQueued = false;
   pairingCompletedThisBoot = false;
   cloudServicesStarted = false;
   firebaseSessionStarted = false;
@@ -1102,6 +1273,7 @@ void completePairingReset() {
   clearPairingResetEnergyState();
   clearOfflineBacklogForPairingReset();
   clearStoredPairing();
+  queueVoicePrompt(VOICE_DEVICE_REMOVED);
   pairingResetCompletedThisHold = true;
   Serial.println("[LED] Reset success blink x3.");
   blinkPairingStatusLed(3);
@@ -1241,6 +1413,8 @@ void loadRuntimeConfig() {
   scheduleBudgetLimitPhp = preferences.getFloat(prefScheduleBudgetPhp, 0.0f);
   scheduleBudgetLimitKwh = preferences.getFloat(prefScheduleBudgetKwh, 0.0f);
   scheduleElectricityRate = preferences.getFloat(prefScheduleRate, 0.0f);
+  pendingPairingReopenVoice = preferences.getBool(prefPendingPairingVoice, false);
+  pendingPairingReopenVoiceQueued = false;
   pairingSsid = buildPairingSsid();
 }
 
@@ -1294,6 +1468,7 @@ bool beginSdCard(const char *context) {
       SD_MOSI_PIN,
       (unsigned long)SD_SPI_FREQ_HZ
     );
+    updateSdVoiceState(false);
     return false;
   }
 
@@ -1305,6 +1480,7 @@ bool beginSdCard(const char *context) {
     static_cast<unsigned long long>(SD.cardSize()),
     static_cast<unsigned long long>(SD.usedBytes())
   );
+  updateSdVoiceState(true);
   return true;
 }
 
@@ -1933,6 +2109,7 @@ void writeSerialJson(FirebaseJson &json) {
 }
 
 void sendPairingError(const char *type, const String &message) {
+  queueVoicePromptUnique(VOICE_PAIRING_FAILED_TRY_AGAIN);
   FirebaseJson response;
   response.set("type", type);
   response.set("ok", false);
@@ -1978,6 +2155,7 @@ void sendLocalJsonString(int statusCode, const String &json) {
 }
 
 void sendLocalError(int statusCode, const String &message) {
+  queueVoicePromptUnique(VOICE_PAIRING_FAILED_TRY_AGAIN);
   FirebaseJson response;
   response.set("success", false);
   response.set("message", message);
@@ -2012,6 +2190,10 @@ void handleCorsOptions() {
 void handleDeviceInfoApi() {
   markPairingActivity();
   Serial.println("Local API request: GET /api/device-info");
+  if (!pairingVoiceDeviceDetected) {
+    queueVoicePromptUnique(VOICE_SMART_PLUG_DETECTED);
+    pairingVoiceDeviceDetected = true;
+  }
   FirebaseJson response;
   addDeviceInfoFields(response);
   sendLocalJson(200, response);
@@ -2048,6 +2230,7 @@ String escapeJsonString(String value) {
 void handleWifiNetworksApi() {
   markPairingActivity();
   Serial.println("Local API request: GET /api/wifi-networks");
+  queueVoicePromptUnique(VOICE_SEARCHING_FOR_SMART_PLUG);
   WiFi.mode(WIFI_AP_STA);
   const int count = WiFi.scanNetworks(false, true);
   String response = "{\"success\":true,\"networks\":[";
@@ -2089,6 +2272,11 @@ void handleVerifyLoginApi() {
 
   localPairingToken = createPairingToken();
   Serial.println("[PAIRING] Default ESP32 login verified. Pairing token created.");
+  if (!pairingVoiceLoginVerified) {
+    queueVoicePromptUnique(VOICE_SMART_PLUG_WIFI_CONNECTED);
+    queueVoicePromptUnique(VOICE_ENTER_HOME_WIFI_DETAILS);
+    pairingVoiceLoginVerified = true;
+  }
 
   FirebaseJson response;
   response.set("success", true);
@@ -2199,6 +2387,15 @@ void handlePairDeviceApi() {
   Serial.printf("[PAIRING] Owner UID: %s, Device document ID: %s\n", ownerUid.c_str(), deviceDocId.c_str());
   Serial.printf("[PAIRING] Router Wi-Fi SSID saved: %s\n", runtimeWifiSsid.c_str());
   Serial.println("[PAIRING] Router Wi-Fi connection is now allowed because pairing completed this boot.");
+  preferences.putBool(prefPendingPairingVoice, true);
+  pendingPairingReopenVoice = true;
+  pendingPairingReopenVoiceQueued = false;
+  clearVoiceQueue();
+  queueVoicePrompt(VOICE_SENDING_WIFI_DETAILS);
+  queueVoicePrompt(VOICE_CREATING_DEVICE_PROFILE);
+  queueVoicePrompt(VOICE_REGISTERING_DEVICE_TO_DATABASE);
+  queueVoicePrompt(VOICE_VERIFYING_DATABASE_REGISTRATION);
+  queueVoicePrompt(VOICE_SMART_PLUG_RESTARTING);
 
   localPairingToken = "";
 
@@ -2266,11 +2463,16 @@ void startPairingAccessPointIfNeeded() {
 
   if (pairingApActive) {
     wifiManagerState = WIFI_MANAGER_AP_FALLBACK;
+    pairingVoiceDeviceDetected = false;
+    pairingVoiceLoginVerified = false;
     setupLocalPairingApi();
     Serial.printf("[AP-PAIRING] Pairing Wi-Fi ready. SSID: %s, password: %s, IP: %s\n", pairingSsid.c_str(), DEVICE_PAIR_PASSWORD, WiFi.softAPIP().toString().c_str());
     Serial.println("[AP-PAIRING] Local setup API: http://192.168.4.1");
+    queueVoicePromptUnique(VOICE_PAIRING_STARTED);
+    queueVoicePromptUnique(VOICE_CONNECT_TO_SMART_PLUG_WIFI);
   } else {
     Serial.println("[AP-PAIRING] Pairing Wi-Fi failed to start.");
+    queueVoicePromptUnique(VOICE_PAIRING_FAILED_TRY_AGAIN);
   }
 }
 
@@ -2383,6 +2585,15 @@ void handleConfigureCommand(FirebaseJson &command) {
   setPairingStatusLed(true);
 
   Serial.println("[PAIRING] Serial configure command accepted. Router Wi-Fi connection is now allowed for this boot.");
+  preferences.putBool(prefPendingPairingVoice, true);
+  pendingPairingReopenVoice = true;
+  pendingPairingReopenVoiceQueued = false;
+  clearVoiceQueue();
+  queueVoicePrompt(VOICE_SENDING_WIFI_DETAILS);
+  queueVoicePrompt(VOICE_CREATING_DEVICE_PROFILE);
+  queueVoicePrompt(VOICE_REGISTERING_DEVICE_TO_DATABASE);
+  queueVoicePrompt(VOICE_VERIFYING_DATABASE_REGISTRATION);
+  queueVoicePrompt(VOICE_SMART_PLUG_RESTARTING);
 
   FirebaseJson response;
   response.set("type", "configured");
@@ -2958,6 +3169,9 @@ void applyPendingCommand(FirebaseJson &result) {
     );
 
     setRelay(nextRelayStatus);
+    queueVoicePrompt(
+      nextRelayStatus ? VOICE_RELAY_TURNED_ON : VOICE_RELAY_TURNED_OFF
+    );
     if (reason == "manual") {
       activateScheduleManualOverride();
     }
@@ -3000,11 +3214,19 @@ void applyPendingCommand(FirebaseJson &result) {
       );
     }
 
+    const bool protectionWasEnabled = protectionEnabled;
     setProtection(
       nextProtectionEnabled,
       nextMaxPowerW,
       nextMaxCurrentA
     );
+    if (nextProtectionEnabled != protectionWasEnabled) {
+      queueVoicePrompt(
+        nextProtectionEnabled
+          ? VOICE_PROTECTION_ENABLED
+          : VOICE_PROTECTION_DISABLED
+      );
+    }
     patchDeviceState();
     updateCommandStatus(commandPath, "acknowledged");
     Serial.printf("Applied protection command %s\n", commandId.c_str());
@@ -3768,6 +3990,7 @@ void syncOfflineFile(const SensorReading &latestReading) {
   }
 
   recordOfflineSyncCompleted(uploadedEntries, archivePath);
+  queueVoicePrompt(VOICE_OFFLINE_LOGS_SYNCED);
   offlineBacklogSyncPending = false;
   Serial.printf(
     "[OFFLINE] Archived %d synced offline log%s to %s\n",
@@ -3862,6 +4085,7 @@ void runScheduleTask(unsigned long now) {
     if (relayStatus) {
       setRelay(false);
       recordScheduleAction("budget_off");
+      queueVoicePrompt(VOICE_BUDGET_REACHED_RELAY_OFF);
       Serial.printf(
         "[SCHEDULE] Budget reached. Relay OFF. energy=%.4f kWh limit=%.4f kWh\n",
         totalEnergyKwh,
@@ -3872,6 +4096,7 @@ void runScheduleTask(unsigned long now) {
       }
     } else if (budgetStateChanged && firebaseReady() && ensureClaimReady()) {
       recordScheduleAction("budget_off");
+      queueVoicePrompt(VOICE_BUDGET_REACHED_RELAY_OFF);
       patchDeviceState();
     }
     return;
@@ -3901,6 +4126,11 @@ void runScheduleTask(unsigned long now) {
 
   setRelay(desiredRelayState);
   recordScheduleAction(desiredRelayState ? "scheduled_on" : "scheduled_off");
+  queueVoicePrompt(
+    desiredRelayState
+      ? VOICE_SCHEDULE_STARTED_RELAY_ON
+      : VOICE_SCHEDULE_ENDED_RELAY_OFF
+  );
   Serial.printf(
     "[SCHEDULE] Time window %s. Relay %s.\n",
     timeWindowActive ? "active" : "inactive",
@@ -3930,6 +4160,13 @@ void enforceProtection(SensorReading &reading) {
     return;
   }
 
+  if (overCurrent) {
+    queueVoicePromptUnique(VOICE_HIGH_CURRENT_DETECTED);
+  }
+  if (overPower) {
+    queueVoicePromptUnique(VOICE_HIGH_POWER_DETECTED);
+  }
+  queueVoicePrompt(VOICE_PROTECTION_TRIPPED_RELAY_OFF);
   setRelay(false);
   reading.relayStatus = false;
   patchDeviceState();
@@ -3963,6 +4200,9 @@ void requestWifiReconnect(unsigned long now, const char *reason) {
   }
 
   Serial.printf("[WIFI] Connecting to router SSID '%s' (%s).\n", runtimeWifiSsid.c_str(), reason);
+  if (pairingCompletedThisBoot) {
+    queueVoicePromptUnique(VOICE_CONNECTING_SMART_PLUG_TO_WIFI);
+  }
   WiFi.mode(pairingApActive ? WIFI_AP_STA : WIFI_STA);
   WiFi.setAutoReconnect(false);
   WiFi.persistent(false);
@@ -4002,11 +4242,13 @@ void serviceWifiManager(unsigned long now) {
         WiFi.RSSI(),
         wifiReconnectAttempt
       );
+      queueVoicePromptUnique(VOICE_SMART_PLUG_CONNECTED_TO_WIFI);
     }
 
     wifiManagerState = WIFI_MANAGER_CONNECTED;
     lastWifiHealthyAt = now;
     wifiOutageStartedAt = 0;
+    wifiConnectionFailureVoiceSpoken = false;
     resetWifiReconnectBackoff();
     stopPairingAccessPointAfterRouterConnect();
     initializeNetworkRuntimeOnce();
@@ -4019,6 +4261,8 @@ void serviceWifiManager(unsigned long now) {
 
   if (wifiManagerState == WIFI_MANAGER_CONNECTED) {
     Serial.println("[WIFI] Router connection lost. Firebase will re-auth after Wi-Fi returns.");
+    queueVoicePrompt(VOICE_SMART_PLUG_OFFLINE);
+    smartPlugOnlineVoiceSpoken = false;
     firebaseSessionStarted = false;
     cloudServicesStarted = false;
     cloudPresenceNeedsPatch = true;
@@ -4034,6 +4278,10 @@ void serviceWifiManager(unsigned long now) {
     WiFi.disconnect(false, false);
     wifiManagerState = pairingApActive ? WIFI_MANAGER_AP_FALLBACK : WIFI_MANAGER_IDLE;
     scheduleNextWifiAttempt(now, "Wi-Fi connect timed out");
+    if (!wifiConnectionFailureVoiceSpoken && pairingCompletedThisBoot) {
+      queueVoicePrompt(VOICE_WIFI_CONNECTION_FAILED_CHECK_PASSWORD);
+      wifiConnectionFailureVoiceSpoken = true;
+    }
 
     if (
       wifiReconnectAttempt >= WIFI_AP_FALLBACK_AFTER_FAILURES ||
@@ -4093,7 +4341,13 @@ void serviceFirebaseManager(unsigned long now) {
       Serial.println("[FIREBASE] Device auth recovered.");
     }
 
-    if (cloudPresenceNeedsPatch && ensureClaimReady()) {
+    const bool claimReadyNow = ensureClaimReady();
+    if (claimReadyNow && !smartPlugOnlineVoiceSpoken) {
+      queueVoicePrompt(VOICE_SMART_PLUG_ONLINE);
+      smartPlugOnlineVoiceSpoken = true;
+    }
+
+    if (cloudPresenceNeedsPatch && claimReadyNow) {
       if (patchDeviceState()) {
         cloudPresenceNeedsPatch = false;
         Serial.println("[FIREBASE] Cloud device presence patched successfully.");
@@ -4106,7 +4360,7 @@ void serviceFirebaseManager(unsigned long now) {
     }
 
     if (
-      ensureClaimReady() &&
+      claimReadyNow &&
       (lastScheduleCloudRefreshAt == 0 ||
        now - lastScheduleCloudRefreshAt >= SCHEDULE_CLOUD_REFRESH_MS)
     ) {
@@ -4118,6 +4372,7 @@ void serviceFirebaseManager(unsigned long now) {
     cloudServicesStarted = true;
     lastFirebaseHealthyAt = now;
     firebaseSessionStarted = true;
+    databaseRegistrationFailureVoiceSpoken = false;
     resetFirebaseAuthBackoff();
     return;
   }
@@ -4134,6 +4389,16 @@ void serviceFirebaseManager(unsigned long now) {
   if (now - lastCloudHealthLogAt >= CLOUD_HEALTH_LOG_MS) {
     lastCloudHealthLogAt = now;
     Serial.println("[FIREBASE] Waiting for device auth token / Firestore readiness.");
+  }
+
+  if (
+    pairingCompletedThisBoot &&
+    !databaseRegistrationFailureVoiceSpoken &&
+    firebaseNotReadySince > 0 &&
+    now - firebaseNotReadySince >= 30000UL
+  ) {
+    queueVoicePrompt(VOICE_DATABASE_REGISTRATION_FAILED_CHECK_INTERNET);
+    databaseRegistrationFailureVoiceSpoken = true;
   }
 }
 
@@ -4176,6 +4441,9 @@ void runLocalControlTask(unsigned long now) {
 
     if (manualToggleButtonStableState) {
       setRelay(!relayStatus);
+      queueVoicePrompt(
+        relayStatus ? VOICE_RELAY_TURNED_ON : VOICE_RELAY_TURNED_OFF
+      );
       activateScheduleManualOverride();
       Serial.printf("[BUTTON] Manual relay toggle -> %s\n", relayStatus ? "ON" : "OFF");
 
@@ -4193,6 +4461,8 @@ void runLocalControlTask(unsigned long now) {
 #endif
 
   serviceMp3Autoplay(now);
+  servicePendingPairingReopenVoice();
+  serviceVoiceQueue(now);
 
   if (!mp3SerialReady || now - lastMp3SerialLogAt < 250) {
     return;
@@ -4281,10 +4551,16 @@ void runCloudBridgeTask(unsigned long now) {
       }
     }
 
-    patchDeviceReadingStateWithFallback(
-      reading,
-      offlineBacklogSyncPending ? countOfflineReadingsOnSd() : 0
-    );
+    if (
+      patchDeviceReadingStateWithFallback(
+        reading,
+        offlineBacklogSyncPending ? countOfflineReadingsOnSd() : 0
+      ) &&
+      !powerReadingVoiceSpoken
+    ) {
+      queueVoicePrompt(VOICE_POWER_READING_UPDATED);
+      powerReadingVoiceSpoken = true;
+    }
 
     if (offlineBacklogSyncPending) {
       syncOfflineFile(reading);

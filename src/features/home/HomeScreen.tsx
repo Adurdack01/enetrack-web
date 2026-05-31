@@ -16,25 +16,17 @@ import { Switch } from "@/components/ui/switch";
 import type { Device } from "@/types/device";
 import type { CloudSyncRequestResult } from "@/types/pairing";
 import type { UsageHistoryEntry } from "@/types/usageHistory";
+import { getBillingMonthKey } from "@/utils/billingTime";
 import { resolveProtectionLimits } from "@/utils/protection";
 
 const PZEM_VALID_VOLTAGE_RANGE_TEXT = "80-300 V";
 
 function getMonthKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}`;
+  return getBillingMonthKey(date);
 }
 
 function getHistoryMonthKey(value: string) {
-  const date = new Date(value);
-
-  if (!Number.isFinite(date.getTime())) {
-    return value.slice(0, 7);
-  }
-
-  return getMonthKey(date);
+  return getBillingMonthKey(value) || value.slice(0, 7);
 }
 
 function roundEnergy(value: number) {
