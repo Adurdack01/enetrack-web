@@ -105,6 +105,7 @@ import {
   removePendingDevicePairing,
   removePendingDevicePairingsByEsp32Id,
   savePendingDevicePairing,
+  updatePendingDevicePairingPasswordHash,
   type PendingDevicePairing,
 } from "@/services/pendingDevicePairing";
 import { checkFirebaseConnectivity } from "@/services/connectivity";
@@ -4111,6 +4112,93 @@ useEffect(() => {
     );
   };
 
+  const handleResetDevicePassword = async (
+    deviceId: string,
+    newPassword: string
+  ): Promise<ActionResult> => {
+    const targetDevice = displayDevices.find((device) => device.id === deviceId);
+    if (!targetDevice) {
+      return { ok: false, message: "Device not found." };
+    }
+
+    if (!canManageDevice(targetDevice)) {
+      return {
+        ok: false,
+        message: "Only the owner can reset this device password.",
+      };
+    }
+
+    const cleanPassword = newPassword.trim();
+    if (cleanPassword.length < 6) {
+      return {
+        ok: false,
+        message: "New device password must be at least 6 characters.",
+      };
+    }
+
+    const devicePasswordHash = await hashDevicePassword(cleanPassword);
+    const now = new Date().toISOString();
+    const nextDevice: Device = {
+      ...targetDevice,
+      devicePasswordHash,
+      updatedAt: now,
+    };
+
+    if (cloudUserId) {
+      try {
+        await saveCloudDevice(cloudUserId, nextDevice);
+      } catch (error) {
+        return {
+          ok: false,
+          message: getErrorMessage(
+            error,
+            "EnerTrack could not save the new device password yet. Check your connection and try again."
+          ),
+        };
+      }
+    }
+
+    setDevices((prev) =>
+      prev.map((device) =>
+        device.id === deviceId
+          ? {
+              ...device,
+              devicePasswordHash,
+              updatedAt: now,
+            }
+          : device
+      )
+    );
+
+    updatePendingDevicePairingPasswordHash(
+      deviceId,
+      devicePasswordHash,
+      targetDevice.esp32Id
+    );
+
+    addUsageLog({
+      deviceId,
+      deviceName: targetDevice.name,
+      energy: 0,
+      cost: 0,
+      action: "device_updated",
+      details:
+        "Device password reset by the owner. Smart Plug cloud connection was not changed.",
+    });
+
+    if (pushNotificationsEnabled) {
+      addNotification({
+        title: "Device password reset",
+        message: `${targetDevice.name} can now be removed using the new device password.`,
+        time: "Just now",
+        type: "info",
+        isRead: false,
+      });
+    }
+
+    return { ok: true, message: "Device password reset successfully." };
+  };
+
   const handleRemoveDevice = async (
     deviceId: string,
     devicePassword: string
@@ -5239,6 +5327,7 @@ useEffect(() => {
   onFormatSdCard={handleFormatDeviceSdCard}
   onUpdateDevice={handleUpdateDevice}
   onRemoveDevice={handleRemoveDevice}
+  onResetDevicePassword={handleResetDevicePassword}
   onRemoveSharedUser={handleRemoveSharedUser}
   onExportRecord={handleRecordExport}
   electricityRate={getElectricityRateForDevice(selectedDevice)}

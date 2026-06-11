@@ -1,0 +1,72 @@
+flowchart LR
+  %% EnerTrack Whole System Block Diagram
+
+  user["User"]
+
+  subgraph appLayer["Mobile Application Layer"]
+    app["EnerTrack Mobile App<br/>(React + TypeScript + Capacitor)<br/>Monitoring • Control • Reports • Sharing"]
+    localStore["Phone Local Storage<br/>Preferences • Cached device state<br/>Notifications • Export records"]
+  end
+
+  subgraph cloudLayer["Cloud / Database Layer"]
+    auth["Firebase Authentication<br/>User account access"]
+    db["Cloud Firestore Database<br/>Devices • Commands • Readings<br/>Usage history • Notifications<br/>Family sharing • Electricity rate"]
+  end
+
+  router["Wi-Fi Router / Internet"]
+
+  subgraph smartPlug["ESP32-Based Smart Plug Unit"]
+    esp32["ESP32 Firmware<br/>(Arduino IDE + C/C++)<br/>Pairing • Telemetry processing<br/>Relay commands • Automation<br/>Offline synchronization"]
+
+    subgraph localModules["Local Smart Plug Modules"]
+      rtc["DS1302 RTC<br/>Offline timestamp keeper"]
+      sd["MicroSD Card Module<br/>Offline logs and archive files"]
+      dfp["DFPlayer Mini + Speaker<br/>Voice status prompts"]
+      led["Green Status LED<br/>Pairing / status indicator"]
+      buttons["Push Buttons<br/>Reset pairing • Manual ON/OFF"]
+    end
+
+    relay["Relay Module<br/>Appliance switching"]
+    pzem["PZEM-004T-100A<br/>Voltage • Current • Power<br/>Energy • PF • Frequency"]
+  end
+
+  subgraph powerLayer["AC Power and Load Layer"]
+    mains["AC Mains Input"]
+    hlk["HLK-10M05 Power Module<br/>AC to 5V DC"]
+    rail["5V DC Supply Rail"]
+    appliance["Electrical Appliance / Load"]
+  end
+
+  user <--> app
+  app <--> localStore
+  app <--> auth
+  app <--> db
+  db <--> router
+  router <--> esp32
+
+  mains --> hlk --> rail
+  rail --> esp32
+  rail --> relay
+  rail --> pzem
+  rail --> sd
+  rail --> dfp
+
+  mains --> relay --> appliance
+  appliance --> pzem
+  pzem -- "UART readings" --> esp32
+  esp32 -- "Relay control signal" --> relay
+
+  buttons -- "Local input" --> esp32
+  esp32 -- "Status output" --> led
+  esp32 -- "Voice command" --> dfp
+  esp32 <--> rtc
+  esp32 <--> sd
+
+  db -- "Commands, settings, sharing" --> app
+  app -- "Relay/configuration requests" --> db
+  esp32 -- "Live telemetry, online status,<br/>offline sync uploads" --> db
+  db -- "Pending commands and settings" --> esp32
+
+  sd -. "Stores readings when offline" .-> esp32
+  esp32 -. "Uploads saved logs when online" .-> db
+

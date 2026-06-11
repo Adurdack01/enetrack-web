@@ -1,0 +1,42 @@
+flowchart TD
+  start([Start])
+
+  userInput[/User opens mobile app<br/>or presses manual button/]
+  app[Mobile Application<br/>Monitor, control, configure]
+  cloud[(Firebase Database<br/>users, devices, commands,<br/>readings, reports)]
+  esp32[ESP32 Smart Plug Controller<br/>process readings and commands]
+
+  pzemInput[/PZEM-004T sensor readings<br/>voltage, current, power, energy/]
+  decisionInternet{Internet<br/>available?}
+  microsd[(MicroSD Card<br/>offline data storage)]
+  restored{Connection<br/>restored?}
+
+  decisionCommand{Relay command<br/>or automation?}
+  relay[Relay Module<br/>switch appliance ON/OFF]
+  applianceOutput[/Electrical Appliance<br/>controlled load/]
+
+  displayOutput[/App displays live readings,<br/>status, cost, and reports/]
+  voiceOutput[/LED and voice status<br/>local feedback/]
+
+  stop([End])
+
+  start --> userInput --> app --> cloud --> esp32
+  pzemInput --> esp32
+
+  esp32 --> decisionInternet
+  decisionInternet -- Yes --> cloud
+  cloud --> displayOutput
+  decisionInternet -- No --> microsd
+  microsd --> restored
+  restored -- No --> microsd
+  restored -- Yes --> cloud
+
+  esp32 --> decisionCommand
+  decisionCommand -- Yes --> relay --> applianceOutput
+  decisionCommand -- No --> displayOutput
+
+  esp32 --> voiceOutput
+  displayOutput --> stop
+  applianceOutput --> stop
+  voiceOutput --> stop
+

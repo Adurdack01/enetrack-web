@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3508" height="2480" viewBox="0 0 3508 2480">
+<rect width="3508" height="2480" fill="#fbfcff"/>
+<text x="1754" y="70" font-size="44" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">ESP32-Based Smart Plug Energy Monitoring and Appliance Control System</text>
+<text x="1754" y="116" font-size="29" fill="#64748b" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700">Circuit / Wiring Diagram - A4 Landscape</text>
+<text x="3388" y="116" font-size="22" fill="#64748b" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="500">Pin map source: firmware config.h</text>
+<rect x="80" y="155" width="3348" height="735" rx="24" fill="#fff7f7" stroke="#ef4444" stroke-width="4"/>
+<text x="110" y="210" font-size="32" fill="#991b1b" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">A. AC MAINS AND LOAD SIDE - HIGH VOLTAGE AREA</text>
+<text x="3315" y="210" font-size="23" fill="#991b1b" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="700">Mains wiring must be enclosed and fused</text>
+<rect x="130" y="360" width="315" height="230" rx="18" fill="#fff" stroke="#991b1b" stroke-width="4"/>
+<text x="287.5" y="402" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">AC INPUT</text>
+<text x="154" y="442" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="154" dy="0">220 VAC mains</tspan>
+<tspan x="154" dy="25.83">Terminal block</tspan>
+<tspan x="154" dy="25.83">L / N</tspan>
+</text>
+<rect x="540" y="230" width="260" height="90" rx="18" fill="#fee2e2" stroke="#dc2626" stroke-width="4"/>
+<text x="670" y="272" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">FUSE</text>
+<text x="564" y="312" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="564" dy="0">Live conductor</tspan>
+</text>
+<rect x="920" y="360" width="420" height="230" rx="18" fill="#fff7ed" stroke="#ea580c" stroke-width="4"/>
+<text x="1130" y="402" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">HLK-10M05</text>
+<text x="944" y="442" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="944" dy="0">AC L and AC N input</tspan>
+<tspan x="944" dy="25.83">Output: +5V and GND</tspan>
+<tspan x="944" dy="25.83">powers ESP32 and modules</tspan>
+</text>
+<rect x="1520" y="360" width="500" height="250" rx="18" fill="#ecfdf5" stroke="#16a34a" stroke-width="4"/>
+<text x="1770" y="402" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">PZEM-004T-100A</text>
+<text x="1544" y="442" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="1544" dy="0">Voltage L/N before relay</tspan>
+<tspan x="1544" dy="25.83">CT clamps switched live only</tspan>
+<tspan x="1544" dy="25.83">TTL UART to ESP32</tspan>
+</text>
+<rect x="2200" y="350" width="510" height="285" rx="18" fill="#fffbeb" stroke="#b45309" stroke-width="4"/>
+<text x="2455" y="392" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">5V RELAY MODULE</text>
+<text x="2224" y="432" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="2224" dy="0">COM = fused live input</tspan>
+<tspan x="2224" dy="25.83">NO = live output to load</tspan>
+<tspan x="2224" dy="25.83">NC = unused</tspan>
+<tspan x="2224" dy="25.83">Logic IN from GPIO26</tspan>
+</text>
+<rect x="3070" y="370" width="325" height="240" rx="18" fill="#eff6ff" stroke="#2563eb" stroke-width="4"/>
+<text x="3232.5" y="412" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">LOAD / OUTLET</text>
+<text x="3094" y="452" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="3094" dy="0">Appliance socket</tspan>
+<tspan x="3094" dy="25.83">Live from relay NO</tspan>
+<tspan x="3094" dy="25.83">Neutral from mains N</tspan>
+</text>
+<rect x="2825" y="430" width="160" height="140" rx="70" fill="#fff" stroke="#b45309" stroke-width="5"/>
+<text x="2905" y="492" font-size="34" fill="#b45309" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">CT</text>
+<text x="2905" y="527" font-size="21" fill="#b45309" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700">clamp</text>
+<polyline points="445,425 500,425 500,275 540,275" fill="none" stroke="#dc2626" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="800,275 850,275 850,315 2220,315 2220,350" fill="none" stroke="#dc2626" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1125,315 1125,360" fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1770,315 1770,360" fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="445,525 500,525 500,660 3250,660 3250,610" fill="none" stroke="#2563eb" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1125,660 1125,590" fill="none" stroke="#2563eb" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1770,660 1770,610" fill="none" stroke="#2563eb" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="2710,492 2825,492 2985,492 3070,492" fill="none" stroke="#b45309" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2755" y="458" font-size="22" fill="#b45309" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">NO switched live</text>
+<text x="2228" y="338" font-size="22" fill="#b45309" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">COM</text>
+<text x="2790" y="405" font-size="22" fill="#b45309" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700">CT around one live wire only</text>
+<circle cx="500" cy="315" r="8" fill="#dc2626" stroke="#fff" stroke-width="3"/>
+<circle cx="850" cy="315" r="8" fill="#dc2626" stroke="#fff" stroke-width="3"/>
+<circle cx="1125" cy="315" r="8" fill="#dc2626" stroke="#fff" stroke-width="3"/>
+<circle cx="1770" cy="315" r="8" fill="#dc2626" stroke="#fff" stroke-width="3"/>
+<circle cx="2220" cy="315" r="8" fill="#dc2626" stroke="#fff" stroke-width="3"/>
+<circle cx="500" cy="660" r="8" fill="#2563eb" stroke="#fff" stroke-width="3"/>
+<circle cx="1125" cy="660" r="8" fill="#2563eb" stroke="#fff" stroke-width="3"/>
+<circle cx="1770" cy="660" r="8" fill="#2563eb" stroke="#fff" stroke-width="3"/>
+<circle cx="3250" cy="660" r="8" fill="#2563eb" stroke="#fff" stroke-width="3"/>
+<rect x="120" y="690" width="900" height="145" rx="14" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+<text x="138" y="724" font-size="23" fill="#9a3412" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">Mains safety</text>
+<text x="138" y="756" font-size="18" fill="#7c2d12" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="138" dy="0">Add fuse on live input before relay, HLK, and PZEM.</tspan>
+<tspan x="138" dy="21.24">Use proper wire gauge, insulation, and strain relief.</tspan>
+<tspan x="138" dy="21.24">Do not work on the circuit while energized.</tspan>
+</text>
+<rect x="1080" y="690" width="900" height="145" rx="14" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+<text x="1098" y="724" font-size="23" fill="#9a3412" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">PZEM placement</text>
+<text x="1098" y="756" font-size="18" fill="#7c2d12" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="1098" dy="0">Voltage terminals are before relay for stable voltage telemetry.</tspan>
+<tspan x="1098" dy="21.24">CT clamp goes only around the relay-output live wire.</tspan>
+<tspan x="1098" dy="21.24">Do not clamp live and neutral together.</tspan>
+</text>
+<rect x="2040" y="690" width="1150" height="145" rx="14" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+<text x="2058" y="724" font-size="23" fill="#9a3412" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">Relay contact rule</text>
+<text x="2058" y="756" font-size="18" fill="#7c2d12" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="2058" dy="0">Use COM + NO for normal smart-plug behavior.</tspan>
+<tspan x="2058" dy="21.24">If wired to NC, the appliance can stay powered while app says OFF.</tspan>
+<tspan x="2058" dy="21.24">Neutral goes directly to load neutral.</tspan>
+</text>
+<rect x="80" y="950" width="3348" height="1350" rx="24" fill="#f7fbff" stroke="#0284c7" stroke-width="4"/>
+<text x="110" y="1005" font-size="32" fill="#075985" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="800">B. LOW-VOLTAGE CONTROL AND MODULE CONNECTIONS</text>
+<text x="3315" y="1005" font-size="23" fill="#075985" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="700">All GND pins are common; net labels mean connected together</text>
+<rect x="160" y="1070" width="730" height="165" rx="18" fill="#ffffff" stroke="#0284c7" stroke-width="4"/>
+<text x="525" y="1112" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">POWER NETS</text>
+<text x="184" y="1152" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="184" dy="0">HLK +5V -&gt; ESP32 VIN/5V, relay VCC, SD VCC, PZEM VCC, DFPlayer VCC</tspan>
+<tspan x="184" dy="25.83">ESP32 3V3 -&gt; RTC VCC</tspan>
+<tspan x="184" dy="25.83">HLK GND and every module GND -&gt; common GND</tspan>
+</text>
+<rect x="1320" y="1190" width="870" height="900" rx="18" fill="#e0f2fe" stroke="#0284c7" stroke-width="4"/>
+<text x="1755" y="1232" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">ESP32 DevKit V1</text>
+<text x="1344" y="1272" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="1344" dy="0">VIN/5V: +5V from HLK</tspan>
+<tspan x="1344" dy="25.83">GND: common GND</tspan>
+<tspan x="1344" dy="25.83">3V3: RTC supply</tspan>
+<tspan x="1344" dy="25.83">GPIO16 RX2 &lt;- PZEM TX</tspan>
+<tspan x="1344" dy="25.83">GPIO17 TX2 -&gt; PZEM RX</tspan>
+<tspan x="1344" dy="25.83">GPIO26 -&gt; Relay IN</tspan>
+<tspan x="1344" dy="25.83">GPIO18 -&gt; SD SCK</tspan>
+<tspan x="1344" dy="25.83">GPIO19 &lt;- SD MISO</tspan>
+<tspan x="1344" dy="25.83">GPIO23 -&gt; SD MOSI</tspan>
+<tspan x="1344" dy="25.83">GPIO5  -&gt; SD CS</tspan>
+<tspan x="1344" dy="25.83">GPIO21 -&gt; RTC CLK</tspan>
+<tspan x="1344" dy="25.83">GPIO22 &lt;-&gt; RTC IO</tspan>
+<tspan x="1344" dy="25.83">GPIO4  -&gt; RTC RST</tspan>
+<tspan x="1344" dy="25.83">GPIO32 RX1 &lt;- DFPlayer TX</tspan>
+<tspan x="1344" dy="25.83">GPIO33 TX1 -&gt; DFPlayer RX</tspan>
+<tspan x="1344" dy="25.83">GPIO25 &lt;- Manual button to GND</tspan>
+<tspan x="1344" dy="25.83">GPIO27 &lt;- Pairing reset button to GND</tspan>
+<tspan x="1344" dy="25.83">GPIO2  -&gt; status LED + resistor</tspan>
+</text>
+<rect x="220" y="1320" width="520" height="245" rx="18" fill="#ecfdf5" stroke="#16a34a" stroke-width="4"/>
+<text x="480" y="1362" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">PZEM TTL HEADER</text>
+<text x="244" y="1402" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="244" dy="0">VCC -&gt; +5V</tspan>
+<tspan x="244" dy="25.83">GND -&gt; common GND</tspan>
+<tspan x="244" dy="25.83">TX -&gt; ESP32 GPIO16</tspan>
+<tspan x="244" dy="25.83">RX &lt;- ESP32 GPIO17</tspan>
+<tspan x="244" dy="25.83">Level shift if UART is 5V</tspan>
+</text>
+<rect x="220" y="1635" width="520" height="245" rx="18" fill="#f0fdf4" stroke="#16a34a" stroke-width="4"/>
+<text x="480" y="1677" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">DS1302 RTC</text>
+<text x="244" y="1717" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="244" dy="0">VCC -&gt; ESP32 3V3</tspan>
+<tspan x="244" dy="25.83">GND -&gt; common GND</tspan>
+<tspan x="244" dy="25.83">CLK -&gt; GPIO21</tspan>
+<tspan x="244" dy="25.83">IO  &lt;-&gt; GPIO22</tspan>
+<tspan x="244" dy="25.83">RST -&gt; GPIO4</tspan>
+</text>
+<rect x="220" y="1965" width="640" height="245" rx="18" fill="#ffffff" stroke="#475569" stroke-width="4"/>
+<text x="540" y="2007" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">BUTTONS / LED</text>
+<text x="244" y="2047" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="244" dy="0">Manual button: GPIO25 to GND</tspan>
+<tspan x="244" dy="25.83">Pairing reset: GPIO27 to GND</tspan>
+<tspan x="244" dy="25.83">Both use INPUT_PULLUP</tspan>
+<tspan x="244" dy="25.83">Green LED: GPIO2 -&gt; 220-330 ohm -&gt; LED -&gt; GND</tspan>
+</text>
+<rect x="2540" y="1320" width="560" height="220" rx="18" fill="#fffbeb" stroke="#b45309" stroke-width="4"/>
+<text x="2820" y="1362" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">RELAY LOGIC</text>
+<text x="2564" y="1402" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="2564" dy="0">VCC -&gt; +5V</tspan>
+<tspan x="2564" dy="25.83">GND -&gt; common GND</tspan>
+<tspan x="2564" dy="25.83">IN &lt;- GPIO26</tspan>
+<tspan x="2564" dy="25.83">Active-high input</tspan>
+</text>
+<rect x="2540" y="1610" width="560" height="320" rx="18" fill="#faf5ff" stroke="#9333ea" stroke-width="4"/>
+<text x="2820" y="1652" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">MICRO SD MODULE</text>
+<text x="2564" y="1692" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="2564" dy="0">VCC -&gt; +5V adapter module</tspan>
+<tspan x="2564" dy="25.83">GND -&gt; common GND</tspan>
+<tspan x="2564" dy="25.83">SCK  &lt;- GPIO18</tspan>
+<tspan x="2564" dy="25.83">MISO -&gt; GPIO19</tspan>
+<tspan x="2564" dy="25.83">MOSI &lt;- GPIO23</tspan>
+<tspan x="2564" dy="25.83">CS   &lt;- GPIO5</tspan>
+<tspan x="2564" dy="25.83">SPI frequency: 1 MHz</tspan>
+</text>
+<rect x="2540" y="2010" width="560" height="230" rx="18" fill="#eff6ff" stroke="#2563eb" stroke-width="4"/>
+<text x="2820" y="2052" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">DFPLAYER MINI</text>
+<text x="2564" y="2092" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="2564" dy="0">VCC -&gt; +5V</tspan>
+<tspan x="2564" dy="25.83">GND -&gt; common GND</tspan>
+<tspan x="2564" dy="25.83">TX -&gt; GPIO32</tspan>
+<tspan x="2564" dy="25.83">RX &lt;- GPIO33 through 1k resistor</tspan>
+<tspan x="2564" dy="25.83">SPK1/SPK2 -&gt; speaker</tspan>
+</text>
+<rect x="3180" y="2045" width="250" height="150" rx="18" fill="#fff" stroke="#2563eb" stroke-width="4"/>
+<text x="3305" y="2087" font-size="30" fill="#233044" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">SPEAKER</text>
+<text x="3204" y="2127" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="500">
+<tspan x="3204" dy="0">4-8 ohm</tspan>
+<tspan x="3204" dy="25.83">SPK1/SPK2</tspan>
+</text>
+<polyline points="740,1425 1320,1425" fill="none" stroke="#0891b2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1025" y="1410" font-size="21" fill="#0891b2" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">PZEM TX -&gt; GPIO16</text>
+<polyline points="740,1465 1320,1465" fill="none" stroke="#0891b2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1025" y="1450" font-size="21" fill="#0891b2" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">PZEM RX &lt;- GPIO17</text>
+<polyline points="740,1705 1320,1705" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1025" y="1690" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">RTC CLK -&gt; GPIO21</text>
+<polyline points="740,1745 1320,1745" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1025" y="1730" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">RTC IO &lt;-&gt; GPIO22</text>
+<polyline points="740,1785 1320,1785" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1025" y="1770" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">RTC RST -&gt; GPIO4</text>
+<polyline points="860,2035 1320,2035" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1090" y="2020" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO25 manual</text>
+<polyline points="860,2075 1320,2075" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1090" y="2060" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO27 reset</text>
+<polyline points="860,2115 1320,2115" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1090" y="2100" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO2 status LED</text>
+<polyline points="2190,1430 2540,1430" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="1415" font-size="21" fill="#7c3aed" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO26 -&gt; Relay IN</text>
+<polyline points="2190,1680 2540,1680" fill="none" stroke="#9333ea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="1665" font-size="21" fill="#9333ea" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO18 SCK</text>
+<polyline points="2190,1720 2540,1720" fill="none" stroke="#9333ea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="1705" font-size="21" fill="#9333ea" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO19 MISO</text>
+<polyline points="2190,1760 2540,1760" fill="none" stroke="#9333ea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="1745" font-size="21" fill="#9333ea" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO23 MOSI</text>
+<polyline points="2190,1800 2540,1800" fill="none" stroke="#9333ea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="1785" font-size="21" fill="#9333ea" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO5 CS</text>
+<polyline points="2190,2075 2540,2075" fill="none" stroke="#0891b2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="2060" font-size="21" fill="#0891b2" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO32 &lt;- DFPlayer TX</text>
+<polyline points="2190,2115 2540,2115" fill="none" stroke="#0891b2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2365" y="2100" font-size="21" fill="#0891b2" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">GPIO33 -&gt; DFPlayer RX + 1k</text>
+<polyline points="3100,2110 3180,2110" fill="none" stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="3100,2150 3180,2150" fill="none" stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="3140" y="2094" font-size="20" fill="#2563eb" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800">SPK</text>
+<rect x="90" y="2320" width="3328" height="115" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+<polyline points="130,2375 210,2375" fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="226" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">AC live</text>
+<polyline points="455,2375 535,2375" fill="none" stroke="#2563eb" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="551" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">AC neutral / speaker pair</text>
+<polyline points="885,2375 965,2375" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="981" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">+5V DC net</text>
+<polyline points="1225,2375 1305,2375" fill="none" stroke="#16a34a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1321" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">+3.3V DC net</text>
+<polyline points="1600,2375 1680,2375" fill="none" stroke="#111827" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1696" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">Common GND net</text>
+<polyline points="2000,2375 2080,2375" fill="none" stroke="#7c3aed" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2096" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">GPIO / control</text>
+<polyline points="2410,2375 2490,2375" fill="none" stroke="#0891b2" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2506" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">UART</text>
+<polyline points="2700,2375 2780,2375" fill="none" stroke="#9333ea" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2796" y="2383" font-size="21" fill="#233044" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-weight="700">SPI</text>
+<text x="3350" y="2420" font-size="22" fill="#64748b" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="600">Verify real module pin labels before soldering or powering mains.</text>
+</svg>

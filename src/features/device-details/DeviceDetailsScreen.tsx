@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   HardDrive,
+  KeyRound,
   Share2,
   Trash2,
   Trophy,
@@ -83,6 +84,10 @@ type Props = {
   onRemoveDevice: (
     deviceId: string,
     devicePassword: string,
+  ) => Promise<{ ok: boolean; message?: string }>;
+  onResetDevicePassword: (
+    deviceId: string,
+    newPassword: string,
   ) => Promise<{ ok: boolean; message?: string }>;
   sharedUsers: FamilyMember[];
   onRemoveSharedUser: (memberId: string, deviceId: string) => void;
@@ -756,6 +761,7 @@ export default function DeviceDetailsScreen({
   onFormatSdCard,
   onUpdateDevice,
   onRemoveDevice,
+  onResetDevicePassword,
   sharedUsers,
   onRemoveSharedUser,
   onExportRecord,
@@ -800,6 +806,16 @@ export default function DeviceDetailsScreen({
   const [devicePassword, setDevicePassword] = useState("");
   const [removeDeviceError, setRemoveDeviceError] = useState("");
   const [removeDeviceBusy, setRemoveDeviceBusy] = useState(false);
+  const [showResetDevicePassword, setShowResetDevicePassword] =
+    useState(false);
+  const [newDevicePassword, setNewDevicePassword] = useState("");
+  const [confirmDevicePassword, setConfirmDevicePassword] = useState("");
+  const [resetDevicePasswordError, setResetDevicePasswordError] =
+    useState("");
+  const [resetDevicePasswordSuccess, setResetDevicePasswordSuccess] =
+    useState("");
+  const [resetDevicePasswordBusy, setResetDevicePasswordBusy] =
+    useState(false);
   const [exportToast, setExportToast] = useState("");
   const exportToastTimeoutRef = useRef<number | null>(null);
   const relayState = device.relayState ?? device.status;
@@ -1149,6 +1165,63 @@ export default function DeviceDetailsScreen({
 
     onRemoveSharedUser(pendingSharedRemoval.id, device.id);
     setPendingSharedRemoval(null);
+  };
+
+  const openResetDevicePassword = () => {
+    if (resetDevicePasswordBusy) return;
+
+    setShowRemoveDevice(false);
+    setShowResetDevicePassword(true);
+    setNewDevicePassword("");
+    setConfirmDevicePassword("");
+    setResetDevicePasswordError("");
+    setResetDevicePasswordSuccess("");
+  };
+
+  const handleConfirmResetDevicePassword = async () => {
+    if (resetDevicePasswordBusy) return;
+
+    const cleanPassword = newDevicePassword.trim();
+
+    if (cleanPassword.length < 6) {
+      setResetDevicePasswordError(
+        "New device password must be at least 6 characters.",
+      );
+      return;
+    }
+
+    if (cleanPassword !== confirmDevicePassword.trim()) {
+      setResetDevicePasswordError("Device passwords do not match.");
+      return;
+    }
+
+    setResetDevicePasswordBusy(true);
+    setResetDevicePasswordError("");
+    setResetDevicePasswordSuccess("");
+
+    try {
+      const result = await onResetDevicePassword(device.id, cleanPassword);
+
+      if (!result.ok) {
+        setResetDevicePasswordError(
+          result.message ?? "Device password reset failed.",
+        );
+        return;
+      }
+
+      setDevicePassword("");
+      setResetDevicePasswordSuccess(
+        result.message ?? "Device password reset successfully.",
+      );
+      window.setTimeout(() => {
+        setShowResetDevicePassword(false);
+        setNewDevicePassword("");
+        setConfirmDevicePassword("");
+        setResetDevicePasswordSuccess("");
+      }, 1200);
+    } finally {
+      setResetDevicePasswordBusy(false);
+    }
   };
 
   const handleConfirmRemoveDevice = async () => {
@@ -1792,6 +1865,30 @@ export default function DeviceDetailsScreen({
               </div>
             </section>
 
+            <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-emerald-500" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Device Password
+                </h2>
+              </div>
+
+              <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                Reset the owner verification password used for removal and
+                protected maintenance actions. This does not change the Smart
+                Plug's cloud connection.
+              </p>
+
+              <Button
+                type="button"
+                onClick={openResetDevicePassword}
+                className="mt-4 h-11 w-full rounded-full bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
+              >
+                <KeyRound className="h-4 w-4" />
+                Reset Device Password
+              </Button>
+            </section>
+
             <button
               type="button"
               onClick={() => {
@@ -1956,6 +2053,107 @@ export default function DeviceDetailsScreen({
         </div>
       )}
 
+      {showResetDevicePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-xl dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <KeyRound className="h-5 w-5" />
+              </span>
+
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Reset Device Password
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  {device.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+              This updates the password used by the app to verify device
+              removal and protected maintenance actions. It will not change the
+              Smart Plug's database login or interrupt live readings.
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <ScheduleField label="Device">
+                <input
+                  readOnly
+                  value={`${device.name} • ${device.room}`}
+                  className="w-full cursor-not-allowed rounded-full border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600 outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+                />
+              </ScheduleField>
+
+              <ScheduleField label="New Device Password">
+                <input
+                  type="password"
+                  value={newDevicePassword}
+                  onChange={(event) => {
+                    setNewDevicePassword(event.target.value);
+                    setResetDevicePasswordError("");
+                    setResetDevicePasswordSuccess("");
+                  }}
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                />
+              </ScheduleField>
+
+              <ScheduleField label="Confirm New Password">
+                <input
+                  type="password"
+                  value={confirmDevicePassword}
+                  onChange={(event) => {
+                    setConfirmDevicePassword(event.target.value);
+                    setResetDevicePasswordError("");
+                    setResetDevicePasswordSuccess("");
+                  }}
+                  placeholder="Re-enter new password"
+                  className="w-full rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                />
+              </ScheduleField>
+
+              {resetDevicePasswordError && (
+                <div className="rounded-2xl bg-red-50 px-4 py-3 text-xs font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300">
+                  {resetDevicePasswordError}
+                </div>
+              )}
+
+              {resetDevicePasswordSuccess && (
+                <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {resetDevicePasswordSuccess}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (resetDevicePasswordBusy) return;
+                    setShowResetDevicePassword(false);
+                  }}
+                  disabled={resetDevicePasswordBusy}
+                  className="h-11 rounded-full"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleConfirmResetDevicePassword}
+                  disabled={resetDevicePasswordBusy}
+                  className="h-11 rounded-full bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
+                >
+                  {resetDevicePasswordBusy ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showRemoveDevice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
           <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-xl dark:bg-slate-900">
@@ -1989,6 +2187,15 @@ export default function DeviceDetailsScreen({
                   className="w-full rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
                 />
               </ScheduleField>
+
+              <button
+                type="button"
+                onClick={openResetDevicePassword}
+                disabled={removeDeviceBusy}
+                className="text-left text-xs font-bold text-emerald-600 transition hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+              >
+                Forgot device password? Reset it
+              </button>
 
               {removeDeviceError && (
                 <div className="rounded-2xl bg-red-50 px-4 py-3 text-xs font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300">

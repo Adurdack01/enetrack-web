@@ -1,0 +1,94 @@
+%%{init: {"flowchart": {"curve": "stepAfter"}} }%%
+flowchart TD
+  %% EnerTrack systematic whole-system flow diagram
+  %% Shape guide:
+  %% ([...]) = Start/End
+  %% [...] = Process
+  %% [/.../] = Input/Output
+  %% {...} = Decision
+  %% [(...)] = Database/Storage
+
+  start([Start])
+
+  powerInput[/AC mains supplies<br/>the smart plug/]
+  powerProcess[HLK-10M05 converts<br/>AC mains to 5V DC]
+  boot[ESP32 powers on<br/>and initializes firmware]
+  initModules[Initialize modules:<br/>PZEM, relay, buttons,<br/>LED, RTC, SD card,<br/>DFPlayer, Wi-Fi]
+  loadConfig[Load saved Wi-Fi,<br/>device, and user settings]
+
+  pairedDecision{Device already<br/>paired?}
+  pairingMode[Start pairing mode<br/>and Smart Plug hotspot]
+  pairingInput[/User enters Wi-Fi,<br/>device name, location,<br/>and device password/]
+  savePairing[Save pairing settings<br/>to ESP32 and app]
+  registerDb[(Register device<br/>in Firebase database)]
+  reboot[Restart ESP32<br/>after pairing]
+
+  connectWifi[Connect ESP32<br/>to Wi-Fi router]
+  internetDecision{Internet<br/>available?}
+
+  readSensor[/PZEM-004T reads<br/>voltage, current, power,<br/>energy, PF, and frequency/]
+  processReading[ESP32 validates readings,<br/>updates relay status,<br/>computes consumption data,<br/>and prepares telemetry]
+  timestamp[Attach timestamp<br/>from internet time or RTC]
+
+  onlineUpload[(Upload live telemetry,<br/>device status, and history<br/>to Firebase)]
+  offlineStore[(Store timestamped readings<br/>to MicroSD card)]
+  retryInternet[Keep local operation active<br/>and retry internet connection]
+  restoredDecision{Connection<br/>restored?}
+  syncOffline[(Upload pending MicroSD logs<br/>to Firebase, then archive<br/>synced records locally)]
+
+  appInput[/User opens mobile app/]
+  appAuth[Authenticate user<br/>and load account data]
+  appFetch[(Retrieve devices,<br/>readings, logs, settings,<br/>notifications, and sharing data)]
+  appDisplay[/Display dashboard,<br/>graphs, usage logs,<br/>cost, reports, and status/]
+
+  userCommandDecision{User sends command<br/>or changes settings?}
+  commandWrite[(Write relay, schedule,<br/>budget, protection, or<br/>configuration command<br/>to Firebase)]
+  espPoll[ESP32 checks Firebase<br/>for pending commands]
+
+  automationDecision{Schedule or budget<br/>condition reached?}
+  relayDecision{Relay state<br/>needs to change?}
+  relayControl[ESP32 drives relay module<br/>to turn appliance ON/OFF]
+  applianceOutput[/Electrical appliance<br/>operates according to<br/>manual, remote, or automated control/]
+  statusOutput[/LED and voice prompt<br/>show local device status/]
+  commandConfirm[(Update command result<br/>and relay state in Firebase)]
+
+  loopDecision{Continue<br/>monitoring?}
+  stop([End])
+
+  start --> powerInput --> powerProcess --> boot --> initModules --> loadConfig --> pairedDecision
+
+  pairedDecision -- No --> pairingMode --> pairingInput --> savePairing --> registerDb --> reboot --> connectWifi
+  pairedDecision -- Yes --> connectWifi
+
+  connectWifi --> internetDecision
+  internetDecision -- Yes --> readSensor
+  internetDecision -- No --> readSensor
+
+  readSensor --> processReading --> timestamp
+  timestamp --> internetDecision2{Internet<br/>available now?}
+
+  internetDecision2 -- Yes --> onlineUpload
+  internetDecision2 -- No --> offlineStore --> retryInternet --> restoredDecision
+  restoredDecision -- No --> readSensor
+  restoredDecision -- Yes --> syncOffline --> onlineUpload
+
+  onlineUpload --> appFetch
+
+  appInput --> appAuth --> appFetch --> appDisplay
+  appDisplay --> userCommandDecision
+  userCommandDecision -- Yes --> commandWrite --> espPoll
+  userCommandDecision -- No --> loopDecision
+
+  onlineUpload --> espPoll
+  espPoll --> automationDecision
+  automationDecision -- Yes --> relayDecision
+  automationDecision -- No --> relayDecision
+  relayDecision -- Yes --> relayControl --> applianceOutput --> commandConfirm --> statusOutput
+  relayDecision -- No --> statusOutput
+
+  commandConfirm --> appFetch
+  statusOutput --> loopDecision
+  appDisplay --> loopDecision
+
+  loopDecision -- Yes --> readSensor
+  loopDecision -- No --> stop

@@ -43,6 +43,31 @@ export function savePendingDevicePairing(pairing: PendingDevicePairing) {
   );
 }
 
+export function updatePendingDevicePairingPasswordHash(
+  deviceId: string,
+  devicePasswordHash: string,
+  esp32Id?: string
+) {
+  const pairings = readPendingDevicePairings();
+  const updatedPairings = pairings.map((pairing) => {
+    const matchesDevice =
+      pairing.device.id === deviceId ||
+      Boolean(esp32Id && pairing.device.esp32Id === esp32Id);
+
+    return matchesDevice
+      ? {
+          ...pairing,
+          device: {
+            ...pairing.device,
+            devicePasswordHash,
+          },
+        }
+      : pairing;
+  });
+
+  localStorage.setItem(pendingPairingsKey, JSON.stringify(updatedPairings));
+}
+
 export function removePendingDevicePairing(deviceId: string) {
   localStorage.setItem(
     pendingPairingsKey,

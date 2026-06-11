@@ -3666,9 +3666,14 @@ String sanitizeOfflineIdPart(String value) {
   return value;
 }
 
-String buildOfflineBatchId(const String &startedAt, int chunkIndex) {
+String buildOfflineBatchId(const String &startedAt, const String &firstReadingId) {
+  String readingIdPart = sanitizeOfflineIdPart(firstReadingId);
+  if (readingIdPart.length() == 0) {
+    readingIdPart = String(millis());
+  }
+
   return String("offline-") + runtimeEsp32Id + "-" +
-         sanitizeOfflineIdPart(startedAt) + "-" + String(chunkIndex);
+         sanitizeOfflineIdPart(startedAt) + "-" + readingIdPart;
 }
 
 bool ensureOfflineArchiveDir() {
@@ -3760,6 +3765,76 @@ bool archiveOfflineBacklogFile(int syncedCount, String &archivePath) {
     return false;
   }
 
+  return true;
+}
+
+bool compactOfflineBacklogAfterFailedChunk(
+  File &source,
+  String failedChunkLines[],
+  int failedChunkLineCount,
+  int &remainingLogs
+) {
+  const char *tempPath = "/enertrack-offline.tmp";
+  remainingLogs = 0;
+
+  if (SD.exists(tempPath)) {
+    SD.remove(tempPath);
+  }
+
+  File target = SD.open(tempPath, FILE_WRITE);
+  if (!target) {
+    Serial.println("[OFFLINE] Could not create temporary SD backlog file for compaction.");
+    return false;
+  }
+
+  for (int i = 0; i < failedChunkLineCount; i++) {
+    failedChunkLines[i].trim();
+    if (failedChunkLines[i].length() == 0) {
+      continue;
+    }
+
+    target.println(failedChunkLines[i]);
+    remainingLogs++;
+  }
+
+  while (source.available()) {
+    String line = source.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) {
+      continue;
+    }
+
+    target.println(line);
+    remainingLogs++;
+  }
+
+  target.close();
+  source.close();
+
+  if (!SD.remove(offlineFilePath)) {
+    Serial.println("[OFFLINE] Could not remove old SD backlog during compaction.");
+    SD.remove(tempPath);
+    return false;
+  }
+
+  if (remainingLogs <= 0) {
+    SD.remove(tempPath);
+    return true;
+  }
+
+  if (SD.rename(tempPath, offlineFilePath)) {
+    return true;
+  }
+
+  Serial.println("[OFFLINE] SD compaction rename failed, trying copy/remove fallback.");
+
+  if (!copySdFile(tempPath, offlineFilePath)) {
+    Serial.println("[OFFLINE] SD compaction copy fallback failed.");
+    SD.remove(tempPath);
+    return false;
+  }
+
+  SD.remove(tempPath);
   return true;
 }
 
@@ -3905,17 +3980,19 @@ void syncOfflineFile(const SensorReading &latestReading) {
   if (!file) return;
 
   int remainingPendingLogs = totalPendingLogs;
-  int chunkIndex = 0;
   int uploadedEntries = 0;
   bool allUploaded = true;
+  bool fileClosedDuringCompaction = false;
 
   while (file.available()) {
     FirebaseJsonArray readings;
     int chunkEntries = 0;
+    int chunkLineCount = 0;
     float chunkTotalEnergy = 0.0;
     String startedAt = "";
     String endedAt = "";
     String batchId = "";
+    String chunkLines[OFFLINE_SYNC_BATCH_SIZE];
 
     while (file.available() && chunkEntries < OFFLINE_SYNC_BATCH_SIZE) {
       String line = file.readStringUntil('\n');
@@ -3933,11 +4010,14 @@ void syncOfflineFile(const SensorReading &latestReading) {
 
       if (chunkEntries == 0) {
         startedAt = offlineReading.timestamp;
-        batchId = buildOfflineBatchId(startedAt, chunkIndex);
+        batchId = buildOfflineBatchId(startedAt, offlineReading.id);
       }
 
       endedAt = offlineReading.timestamp;
       chunkTotalEnergy += offlineReading.energyDelta;
+      if (chunkLineCount < OFFLINE_SYNC_BATCH_SIZE) {
+        chunkLines[chunkLineCount++] = line;
+      }
       appendOfflineReadingValue(readings, offlineReading, batchId);
       chunkEntries++;
     }
@@ -3960,6 +4040,23 @@ void syncOfflineFile(const SensorReading &latestReading) {
         fbdo.errorReason().c_str()
       );
       allUploaded = false;
+      int compactedRemainingLogs = remainingPendingLogs;
+      if (compactOfflineBacklogAfterFailedChunk(
+            file,
+            chunkLines,
+            chunkLineCount,
+            compactedRemainingLogs
+          )) {
+        remainingPendingLogs = compactedRemainingLogs;
+        fileClosedDuringCompaction = true;
+        Serial.printf(
+          "[OFFLINE] SD backlog compacted after failed batch. Remaining unsynced logs: %d\n",
+          remainingPendingLogs
+        );
+      } else {
+        remainingPendingLogs = totalPendingLogs;
+        Serial.println("[OFFLINE] SD backlog compaction failed. Keeping full active backlog for retry.");
+      }
       break;
     }
 
@@ -3970,10 +4067,11 @@ void syncOfflineFile(const SensorReading &latestReading) {
     }
 
     patchDeviceReadingStateWithFallback(latestReading, remainingPendingLogs);
-    chunkIndex++;
   }
 
-  file.close();
+  if (!fileClosedDuringCompaction) {
+    file.close();
+  }
 
   if (!allUploaded) {
     offlineBacklogSyncPending = remainingPendingLogs > 0;
